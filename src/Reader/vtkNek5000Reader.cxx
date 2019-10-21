@@ -103,7 +103,6 @@ vtkNek5000Reader::~vtkNek5000Reader()
     {
       if(this->dataArray[i])
       {
-        std::cerr<< "freeing dataArray[" << this->var_names[i] << "]\n";
         delete [] this->dataArray[i];
       }
     }
@@ -140,10 +139,8 @@ vtkNek5000Reader::~vtkNek5000Reader()
 
 //----------------------------------------------------------------------------
 
-
 void vtkNek5000Reader::GetAllTimesAndVariableNames(vtkInformationVector *outputVector)
 {
-//  FILE* dfPtr = NULL;
   ifstream dfPtr;
   char dummy[64];
   double t;
@@ -151,9 +148,6 @@ void vtkNek5000Reader::GetAllTimesAndVariableNames(vtkInformationVector *outputV
   string v;
 
   char dfName[265];
-  char* scan_ret;
-  char* p;
-  char* p2;
   char firstTags[32];
   char param[32];
   int file_index;
@@ -736,7 +730,7 @@ void vtkNek5000Reader::partitionAndReadMesh()
 {
   char dfName[265];
   ifstream dfPtr;
-  int i, j, jj;
+  int i;
   string buf2, tag;
   std::map<int,int> blockMap;
 
@@ -812,7 +806,6 @@ void vtkNek5000Reader::partitionAndReadMesh()
   for(i=0; i<num_ranks; i++)
   {
     this->proc_numBlocks[i] = elements_per_proc + (i<one_extra_until ? 1 : 0 );
-    std::cerr <<"Proc "<< i << " has "<< this->proc_numBlocks[i]<<" blocks"<<endl;
   }
   this->myNumBlocks = this->proc_numBlocks[my_rank];
   this->myBlockIDs = new int[this->myNumBlocks];
@@ -877,7 +870,6 @@ void vtkNek5000Reader::partitionAndReadMesh()
 
   // now that we have our list of blocks, get their positions in the file (their index)
   this->myBlockPositions = new int[this->myNumBlocks];
-  std::cerr << __LINE__ << " newing myBlockPositions" << std::endl;
   for(i=0; i<this->myNumBlocks; i++)
   {
     this->myBlockPositions[i] = blockMap.find(this->myBlockIDs[i])->second;
@@ -888,7 +880,7 @@ void vtkNek5000Reader::partitionAndReadMesh()
   {
     for(i=0; i<this->myNumBlocks-1; i++)
     {
-      for(j=i+1; j<this->myNumBlocks; j++)
+      for(auto j=i+1; j<this->myNumBlocks; j++)
       {
         if(this->myBlockPositions[i] == this->myBlockPositions[j])
         {
@@ -905,7 +897,6 @@ void vtkNek5000Reader::partitionAndReadMesh()
   // now read the coordinates for all of my blocks
   if(nullptr == this->meshCoords)
   {
-  std::cerr << __LINE__ << " this->meshCoords = new float[" << this->myNumBlocks << "*" << this->totalBlockSize << "*" << "*3]" << std::endl;
     vtkDebugMacro(<< ": partitionAndReadMesh:  ALLOCATE meshCoords[" << this->myNumBlocks <<"*"<< this->totalBlockSize <<"*" <<3 << "]");
     this->meshCoords = new float[this->myNumBlocks * this->totalBlockSize * 3];
   }
@@ -1323,15 +1314,10 @@ int vtkNek5000Reader::RequestData(
         if(this->use_variable[i])
           {
           this->dataArray[i] = new float[this->myNumBlocks * this->totalBlockSize * this->var_length[i]];
-          std::cerr<< "variable " << i << " new float[" <<
-                  this->myNumBlocks << " * " <<
-                  this->totalBlockSize << " * " <<
-                  this->var_length[i] << "]\n";
           }
         else
           {
           this->dataArray[i] = nullptr;
-          std::cerr<< "variable " << i << " new float[0] (no allocation)\n";
           }
         }
       }
@@ -1364,7 +1350,6 @@ int vtkNek5000Reader::RequestData(
   timer_diff = timer->GetElapsedTime();
   vtkDebugMacro(<<"vtkNek5000Reader::RequestData: Rank: "<<my_rank<<" :: updateVtuData time: "<<  timer_diff);
 
-
   this->SetDataFileName(this->curObj->dataFilename);
 
   total_timer->StopTimer();
@@ -1376,9 +1361,6 @@ int vtkNek5000Reader::RequestData(
 
 void vtkNek5000Reader::updateVtuData(vtkUnstructuredGrid* pv_ugrid)
 {
-  register int i,j,k,n,e,nelmts;
-  int ntot;
-  double   *z,*w, ave;
   double timer_diff;
 
   int num_ranks, my_rank;
@@ -1445,9 +1427,6 @@ void vtkNek5000Reader::updateVtuData(vtkUnstructuredGrid* pv_ugrid)
 
   int Nvert_total = 0;
   int Nelements_total;
-  int vort_index = 0;
-  int lambda_index = 0;
-  int stress_tensor_index = 0;
 
   vtkSmartPointer<vtkPoints> points;
     
@@ -1539,7 +1518,7 @@ void vtkNek5000Reader::addCellsToContinuumMesh()
 {
 // Note that point ids are starting at 0, and are local to each processor
 // same with cellids. Local and starting at 0 on each MPI task
-  vtkIdType pts[8];
+  vtkIdType p, pts[8];
   int n = 0;
   
   if (this->MeshIs3D)
@@ -1552,14 +1531,18 @@ void vtkNek5000Reader::addCellsToContinuumMesh()
         {
           for(auto kk = 0; kk < this->blockDims[2]-1; ++kk)
           {
-            pts[0] = kk*(this->blockDims[1])*(this->blockDims[0]) + jj*(this->blockDims[0]) + ii + n;
-            pts[1] = kk*(this->blockDims[1])*(this->blockDims[0]) + jj*(this->blockDims[0]) + ii+1 + n;
-            pts[2] = kk*(this->blockDims[1])*(this->blockDims[0]) + (jj+1)*(this->blockDims[0]) + ii+1 + n;
-            pts[3] = kk*(this->blockDims[1])*(this->blockDims[0]) + (jj+1)*(this->blockDims[0]) + ii + n;
-            pts[4] = (kk+1)*(this->blockDims[1])*(this->blockDims[0]) + jj*(this->blockDims[0]) + ii + n;
-            pts[5] = (kk+1)*(this->blockDims[1])*(this->blockDims[0]) + jj*(this->blockDims[0]) + ii+1 + n;
-            pts[6] = (kk+1)*(this->blockDims[1])*(this->blockDims[0]) + (jj+1)*(this->blockDims[0]) + ii+1 + n;
-            pts[7] = (kk+1)*(this->blockDims[1])*(this->blockDims[0]) + (jj+1)*(this->blockDims[0]) + ii + n;
+            p = kk*(this->blockDims[1])*(this->blockDims[0]) + jj*(this->blockDims[0]) + ii + n;
+            pts[0] = p;
+            pts[1] = p + 1;
+            p += this->blockDims[0];
+            pts[2] = p + 1;
+            pts[3] = p;
+            p = (kk+1)*(this->blockDims[1])*(this->blockDims[0]) + jj*(this->blockDims[0]) + ii + n;
+            pts[4] = p;
+            pts[5] = p + 1;
+            p += this->blockDims[0];
+            pts[6] = p + 1;
+            pts[7] = p;
 
             this->UGrid->InsertNextCell(VTK_HEXAHEDRON, 8, pts);
           }
@@ -1576,10 +1559,12 @@ void vtkNek5000Reader::addCellsToContinuumMesh()
         {
           for(auto jj = 0; jj < this->blockDims[1]-1; ++jj)
           {
-            pts[0] = n+jj*(this->blockDims[0]) + ii;
-            pts[1] = n+jj*(this->blockDims[0]) + ii+1;
-            pts[2] = n+(jj+1)*(this->blockDims[0]) + ii+1;
-            pts[3] = n+(jj+1)*(this->blockDims[0]) + ii;
+            p = n+jj*(this->blockDims[0]) + ii;
+            pts[0] = p;
+            pts[1] = p + 1;
+            p += this->blockDims[0];
+            pts[2] = p + 1;
+            pts[3] = p;
             this->UGrid->InsertNextCell(VTK_QUAD, 4, pts);
           }
         }
@@ -1648,7 +1633,6 @@ void vtkNek5000Reader::addSpectralElementId(int nelements)
 void vtkNek5000Reader::copyContinuumPoints(vtkPoints* points)
 {
   int index = 0;
-  std::cerr<< "begin copyContinuumPoints()\n";
   // for each element/block in the continuum mesh
   for(auto k = 0; k < this->myNumBlocks; ++k)
   {
@@ -1669,7 +1653,6 @@ void vtkNek5000Reader::copyContinuumPoints(vtkPoints* points)
     }
   }
   delete [] this->meshCoords;
-  std::cerr<< "end  copyContinuumPoints()\n";
 }
 
 void vtkNek5000Reader::copyContinuumData(vtkUnstructuredGrid* pv_ugrid)
@@ -1703,7 +1686,6 @@ void vtkNek5000Reader::copyContinuumData(vtkUnstructuredGrid* pv_ugrid)
   {
     if(this->GetPointArrayStatus(jj) == 1)
     {
-      std::cerr<< "copying [" << this->var_names[jj] << "] of size " << this->var_length[jj] << "\n";
       // if this variable is a scalar
       if(this->var_length[jj] == 1)
       {

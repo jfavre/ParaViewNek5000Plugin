@@ -1,13 +1,13 @@
 
-#include "vtkNek5000Reader.h"
-#include "vtkCompositeDataPipeline.h"
 #include "vtkCompositeDataGeometryFilter.h"
+#include "vtkCompositeDataPipeline.h"
 #include "vtkGeometryFilter.h"
+#include "vtkInformation.h"
+#include "vtkLookupTable.h"
+#include "vtkNek5000Reader.h"
+#include "vtkPointData.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkRenderer.h"
-#include "vtkLookupTable.h"
-#include "vtkInformation.h"
-#include "vtkPointData.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
 #include "vtkSmartPointer.h"
@@ -82,7 +82,7 @@ main(int argc, char **argv)
 
   if(varname.size())
     {
-    lut->SetTableRange(range[0], range[1]); // 3.83, 6.83);
+    lut->SetTableRange(range[0], range[1]);
     lut->Build();
     }
 
