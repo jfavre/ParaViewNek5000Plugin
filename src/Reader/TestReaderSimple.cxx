@@ -19,7 +19,7 @@
 #define VTK_CREATE(type, var) \
   vtkSmartPointer<type> var = vtkSmartPointer<type>::New();
 
-#define WITH_GRAPHICS 1
+//#define WITH_GRAPHICS 1
 int
 main(int argc, char **argv)
 {

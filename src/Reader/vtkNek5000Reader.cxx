@@ -1,24 +1,25 @@
 #include "vtkNek5000Reader.h"
 
-#include "vtkObjectFactory.h"
-#include "vtkInformation.h"
-#include "vtkInformationVector.h"
-#include "vtkUnstructuredGrid.h"
-#include "vtkStreamingDemandDrivenPipeline.h"
-#include "vtkTrivialProducer.h"
+#include "vtkCellArray.h"
+#include "vtkCellData.h"
+#include "vtkCellType.h"
 #include "vtkCleanUnstructuredGrid.h"
 #include "vtkDataArraySelection.h"
-
 #include "vtkFloatArray.h"
-#include "vtkUnsignedCharArray.h"
-#include "vtkTypeUInt32Array.h"
-#include "vtkCellType.h"
-#include "vtkPointData.h"
-#include "vtkCellData.h"
+#include "vtkIdTypeArray.h"
+#include "vtkInformation.h"
+#include "vtkInformationVector.h"
 #include "vtkMultiProcessController.h"
 #include "vtkNew.h"
+#include "vtkObjectFactory.h"
+#include "vtkPointData.h"
 #include "vtkSmartPointer.h"
+#include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkTimerLog.h"
+#include "vtkTrivialProducer.h"
+#include "vtkTypeUInt32Array.h"
+#include "vtkUnsignedCharArray.h"
+#include "vtkUnstructuredGrid.h"
 #include <vtksys/SystemTools.hxx>
 #include <map>
 #include <new>
@@ -72,6 +73,8 @@ vtkNek5000Reader::vtkNek5000Reader(){
   this->timestep_has_mesh = nullptr;
   this->proc_numBlocks = nullptr;
   this->velocity_index = -1;
+  this->SpectralElementIds = 0;
+  this->CleanGrid = 0;
 
   this->PointDataArraySelection = vtkDataArraySelection::New();
 
@@ -771,11 +774,15 @@ void vtkNek5000Reader::partitionAndReadMesh()
   dfPtr >> this->numBlocks;
 
   this->totalBlockSize =  this->blockDims[0] *  this->blockDims[1] *  this->blockDims[2];
-  if(this->blockDims[2] > 1)
+  if(this->blockDims[2] > 1){
     this->MeshIs3D = true;
-  else
+    std::cout << "3D-Mesh found";
+    }
+  else{
     this->MeshIs3D = false;
-  std::cerr << "3DMesh is " << MeshIs3D << ", totalBlockSize = " << this->blockDims[0] <<"*"<<  this->blockDims[1] <<"*"<<  this->blockDims[2] <<"="<< this->totalBlockSize << std::endl;
+    std::cout << "2D-Mesh found";
+    }
+  std::cout << ", spectral element of size = " << this->blockDims[0] <<"*"<<  this->blockDims[1] <<"*"<<  this->blockDims[2] <<"="<< this->totalBlockSize << std::endl;
 
   float test;
   dfPtr.seekg( 132, std::ios_base::beg );
@@ -809,6 +816,7 @@ void vtkNek5000Reader::partitionAndReadMesh()
   }
   this->myNumBlocks = this->proc_numBlocks[my_rank];
   this->myBlockIDs = new int[this->myNumBlocks];
+
   // read the ids of all of the blocks in the file
   dfPtr.seekg( 136, std::ios_base::beg );
   dfPtr.read( (char *)tmpBlocks, this->numBlocks*sizeof(int) );
@@ -870,6 +878,7 @@ void vtkNek5000Reader::partitionAndReadMesh()
 
   // now that we have our list of blocks, get their positions in the file (their index)
   this->myBlockPositions = new int[this->myNumBlocks];
+
   for(i=0; i<this->myNumBlocks; i++)
   {
     this->myBlockPositions[i] = blockMap.find(this->myBlockIDs[i])->second;
@@ -1114,14 +1123,10 @@ int vtkNek5000Reader::RequestInformation(
 
     // GetAllTimes() now also calls GetVariableNamesFromData()
     vtkNew<vtkTimerLog> timer;
-    timer->StartTimer();
+
     this->GetAllTimesAndVariableNames(outputVector);
-    timer->StopTimer();
-    timer_diff = timer->GetElapsedTime();
 
     this->use_variable = new bool[this->num_vars];
-
-    vtkDebugMacro(<<"Rank: "<< my_rank <<" :: GetAllTimeSteps time: "<< timer_diff);
 
     char dfName[265];
 
@@ -1153,8 +1158,6 @@ int vtkNek5000Reader::RequestData(
   vtkNew<vtkTimerLog> timer;
   vtkNew<vtkTimerLog> total_timer;
   total_timer->StartTimer();
-  // the default implimentation is to do what the old pipeline did find what
-  // output is requesting the data, and pass that into ExecuteData
 
   // which output port did the request come from
   int outputPort =
@@ -1289,19 +1292,9 @@ int vtkNek5000Reader::RequestData(
   // if I have not yet read the geometry, this should only happen once
   if(this->READ_GEOM_FLAG)
   {
-    timer->StartTimer();
-
     this->partitionAndReadMesh();
-
-    timer->StopTimer();
-    timer_diff = timer->GetElapsedTime();
-
     this->READ_GEOM_FLAG = false;
-
-    vtkDebugMacro(<<"vtkNek5000Reader::RequestData:: Rank: "<<my_rank
-                  <<" ::Done calling partitionAndReadMesh: Time: "<< timer_diff);
-  } // if(this->READ_GEOM_FLAG)
-
+  }
   if(!this->I_HAVE_DATA)
   {
     // See if we have allocated memory to store the data from disk, if not, allocate it
@@ -1327,14 +1320,8 @@ int vtkNek5000Reader::RequestData(
     sprintf(dfName, this->datafile_format.c_str(), 0, this->requested_step);
     vtkDebugMacro(<<"vtkNek5000Reader::RequestData: Rank: "<< my_rank<<" Now reading data from file: "<< dfName<<" this->requested_step: "<< this->requested_step);
 
-//    vtkNew<vtkTimerLog> timer;
-    timer->StartTimer();
     this->readData(dfName);
 
-    timer->StopTimer();
-    timer_diff = timer->GetElapsedTime();
-
-    vtkDebugMacro(<<"vtkNek5000Reader::RequestData:: Rank: "<<my_rank<<" ::Done reading data from file: "<< dfName <<":: Read  time: "<< timer_diff);
     this->curObj->setDataFilename(dfName);
 
     this->I_HAVE_DATA = true;
@@ -1342,13 +1329,7 @@ int vtkNek5000Reader::RequestData(
 
   } // if(!this->I_HAVE_DATA)
 
-//  vtkNew<vtkTimerLog> timer;
-  timer->StartTimer();
   this->updateVtuData(ugrid); //, boundary_ugrid); // , outputPort);
-
-  timer->StopTimer();
-  timer_diff = timer->GetElapsedTime();
-  vtkDebugMacro(<<"vtkNek5000Reader::RequestData: Rank: "<<my_rank<<" :: updateVtuData time: "<<  timer_diff);
 
   this->SetDataFileName(this->curObj->dataFilename);
 
@@ -1357,7 +1338,7 @@ int vtkNek5000Reader::RequestData(
 
   vtkDebugMacro(<<"vtkNek5000Reader::RequestData: Rank: "<<my_rank<< "  outputPort: " << outputPort <<" EXIT :: Total time: "<< total_timer_diff);
   return 1;
-}
+} // vtkNek5000Reader::RequestData()
 
 void vtkNek5000Reader::updateVtuData(vtkUnstructuredGrid* pv_ugrid)
 {
@@ -1448,8 +1429,9 @@ void vtkNek5000Reader::updateVtuData(vtkUnstructuredGrid* pv_ugrid)
       this->UGrid->Delete();
       }
     this->UGrid = vtkUnstructuredGrid::New();
-    this->UGrid->Allocate(Nelements_total);
-
+    //this->UGrid->Allocate(Nelements_total);
+// remove the Allocation here, in order to do a direct SelCells()
+// call in addCellsToContinuumMesh
     points = vtkSmartPointer<vtkPoints>::New();
     points->SetNumberOfPoints(Nvert_total);
 
@@ -1479,22 +1461,26 @@ void vtkNek5000Reader::updateVtuData(vtkUnstructuredGrid* pv_ugrid)
   timer->StopTimer();
   timer_diff = timer->GetElapsedTime();
   vtkDebugMacro(<< "updateVtuData: my_rank= " << my_rank<<": time of CALC_GEOM (the mesh): "<< timer_diff);
+  if(this->CleanGrid)
+    {
+    timer->StartTimer();
+    vtkNew<vtkCleanUnstructuredGrid> clean;
 
-  timer->StartTimer();
-  vtkNew<vtkCleanUnstructuredGrid> clean;
+    vtkNew<vtkUnstructuredGrid> tmpGrid;
+    tmpGrid->ShallowCopy(this->UGrid);
+    clean->SetInputData(tmpGrid.GetPointer());
 
-  vtkNew<vtkUnstructuredGrid> tmpGrid;
-  tmpGrid->ShallowCopy(this->UGrid);
-  clean->SetInputData(tmpGrid.GetPointer());
+    clean->Update();
+    timer->StopTimer();
+    timer_diff = timer->GetElapsedTime();
+    vtkDebugMacro(<< "updateVtuData: my_rank= " << my_rank<<": time to clean the grid: "<< timer_diff);
 
-  clean->Update();
-  timer->StopTimer();
-  timer_diff = timer->GetElapsedTime();
-  vtkDebugMacro(<< "updateVtuData: my_rank= " << my_rank<<": time to clean the grid: "<< timer_diff);
-
-  timer->StartTimer();
-  pv_ugrid->ShallowCopy(clean->GetOutput());
-
+    pv_ugrid->ShallowCopy(clean->GetOutput());
+    }
+  else
+    {
+    pv_ugrid->ShallowCopy(this->UGrid);
+    }
   vtkDebugMacro(<< "updateVtuData: my_rank= " << my_rank<<":  completed ShallowCopy to pv_ugrid\n");
   if(this->curObj->ugrid)
     {
@@ -1518,11 +1504,25 @@ void vtkNek5000Reader::addCellsToContinuumMesh()
 {
 // Note that point ids are starting at 0, and are local to each processor
 // same with cellids. Local and starting at 0 on each MPI task
+  int numVTKCells = this->myNumBlocks * (this->blockDims[0]-1) * (this->blockDims[1]-1);
+  if (this->MeshIs3D)
+    numVTKCells *= (this->blockDims[2]-1);
+    
+  vtkUnsignedCharArray* cellTypes = vtkUnsignedCharArray::New(); // type array (HEX or QUAD)
+  cellTypes->SetNumberOfTuples(numVTKCells);
+
+  vtkCellArray* outCells = vtkCellArray::New(); // the connectivity array
+
+  vtkIdTypeArray* locations = vtkIdTypeArray::New(); // the offset array
+  locations->SetNumberOfTuples(numVTKCells);
+  
   vtkIdType p, pts[8];
-  int n = 0;
+  int n = 0, c=0;
   
   if (this->MeshIs3D)
     {
+    cellTypes->Fill(VTK_HEXAHEDRON);
+    outCells->Allocate(9L*numVTKCells);
     for(auto e = 0; e < this->myNumBlocks; ++e)
     {
       for(auto ii = 0; ii < this->blockDims[0]-1; ++ii)
@@ -1544,7 +1544,9 @@ void vtkNek5000Reader::addCellsToContinuumMesh()
             pts[6] = p + 1;
             pts[7] = p;
 
-            this->UGrid->InsertNextCell(VTK_HEXAHEDRON, 8, pts);
+            outCells->InsertNextCell(8, pts);
+            locations->SetTuple1(c, c*9L);
+            c++;
           }
         }
       }
@@ -1553,6 +1555,8 @@ void vtkNek5000Reader::addCellsToContinuumMesh()
     }
   else // 2D
     {
+    cellTypes->Fill(VTK_QUAD);
+    outCells->Allocate(5L*numVTKCells);
       for(auto e = 0; e < this->myNumBlocks; ++e)
       {
         for(auto ii = 0; ii < this->blockDims[0]-1; ++ii)
@@ -1565,22 +1569,28 @@ void vtkNek5000Reader::addCellsToContinuumMesh()
             p += this->blockDims[0];
             pts[2] = p + 1;
             pts[3] = p;
-            this->UGrid->InsertNextCell(VTK_QUAD, 4, pts);
+            outCells->InsertNextCell(4, pts);
+            locations->SetTuple1(c, c*5L);
+            c++;
           }
         }
       n +=  this->totalBlockSize;
       }
     }
+    
+  this->UGrid->SetCells(cellTypes, locations, outCells);
+  locations->Delete();
+  outCells->Delete();
+  cellTypes->Delete();
 }// addPointsToContinuumMesh()
 
 void vtkNek5000Reader::addSpectralElementId(int nelements)
 {
-  vtkIdType pts[8];
   vtkTypeUInt32Array *spectral_id = vtkTypeUInt32Array::New();
   spectral_id->SetNumberOfTuples(nelements);
   spectral_id->SetName("spectral element id");
   int n = 0;
-  int num_ranks, my_rank;
+  int my_rank;
   vtkMultiProcessController* ctrl = vtkMultiProcessController::GetGlobalController();
   if (ctrl != nullptr)
     {

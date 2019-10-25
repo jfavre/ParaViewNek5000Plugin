@@ -53,6 +53,18 @@
      </StringVectorProperty>
      
      <IntVectorProperty 
+        name="Merge Points to clean grid" 
+        command="SetCleanGrid"
+        number_of_elements="1"
+        default_values="0"
+	label="Merge Points to clean grid" >
+      <BooleanDomain name="bool" />
+      <Documentation>
+            Will call vtkCleanUnstructuredGrid internally. Memory-hungry (optional)
+      </Documentation>
+     </IntVectorProperty>
+
+     <IntVectorProperty 
         name="Add Spectral Element Ids" 
         command="SetSpectralElementIds"
         number_of_elements="1"

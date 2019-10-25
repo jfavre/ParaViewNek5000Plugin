@@ -89,6 +89,10 @@ class NEK5000READER_EXPORT vtkNek5000Reader : public vtkUnstructuredGridAlgorith
   // the input.
   const char* GetPointArrayName(int index);
 
+// used for ParaView to decide if cleaning the grid to merge points
+  vtkSetMacro(CleanGrid, int); 
+  vtkGetMacro(CleanGrid, int);
+  vtkBooleanMacro(CleanGrid, int);
 
 // used for ParaView to decide if showing the spectral elements ids as cell-data
   vtkSetMacro(SpectralElementIds, int); 
@@ -259,6 +263,7 @@ class NEK5000READER_EXPORT vtkNek5000Reader : public vtkUnstructuredGridAlgorith
   void operator=(const vtkNek5000Reader&) = delete;  // Not implemented.
   
   int SpectralElementIds;
+  int CleanGrid;
 };
 
 #endif
