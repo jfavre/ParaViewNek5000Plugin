@@ -1,5 +1,7 @@
+#include "vtkAutoInit.h" 
+VTK_MODULE_INIT(vtkRenderingOpenGL2); // VTK was built with vtkRenderingOpenGL2
+VTK_MODULE_INIT(vtkInteractionStyle);
 
-#include "vtkCompositeDataGeometryFilter.h"
 #include "vtkCompositeDataPipeline.h"
 #include "vtkGeometryFilter.h"
 #include "vtkInformation.h"
@@ -19,7 +21,7 @@
 #define VTK_CREATE(type, var) \
   vtkSmartPointer<type> var = vtkSmartPointer<type>::New();
 
-//#define WITH_GRAPHICS 1
+#define WITH_GRAPHICS 1
 int
 main(int argc, char **argv)
 {
@@ -58,7 +60,7 @@ main(int argc, char **argv)
   reader->DebugOff();
   reader->SetFileName(filein.c_str());
   reader->UpdateInformation();
-  //reader->DisableAllPointArrays();
+  reader->DisableAllPointArrays();
   reader->SetPointArrayStatus(varname.c_str(), 1);
 
   reader->UpdateTimeStep(TimeStep); // time value

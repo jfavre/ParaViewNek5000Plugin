@@ -3,6 +3,5 @@ NAME
 DESCRIPTION
   Reader for visualization of Nek5000 data
 REQUIRES_MODULES
-  ParaView::Core
   VTK::CommonCore
   VTK::CommonExecutionModel
