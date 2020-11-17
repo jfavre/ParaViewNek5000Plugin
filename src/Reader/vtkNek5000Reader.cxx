@@ -144,7 +144,7 @@ vtkNek5000Reader::~vtkNek5000Reader()
 
 void vtkNek5000Reader::GetAllTimesAndVariableNames(vtkInformationVector *outputVector)
 {
-  ifstream dfPtr;
+  std::ifstream dfPtr;
   char dummy[64];
   double t;
   int    c;
@@ -530,7 +530,7 @@ void vtkNek5000Reader::readData(char* dfName)
   long total_header_size = 136 + (this->numBlocks * 4);
   long read_location;
   long read_size;
-  ifstream dfPtr;
+  std::ifstream dfPtr;
   float* dataPtr;
   double *tmpDblPtr;
 
@@ -732,7 +732,7 @@ if reading 2D, it is safer to set the Z component to 0.
 void vtkNek5000Reader::partitionAndReadMesh()
 {
   char dfName[265];
-  ifstream dfPtr;
+  std::ifstream dfPtr;
   int i;
   string buf2, tag;
   std::map<int,int> blockMap;
@@ -835,7 +835,7 @@ void vtkNek5000Reader::partitionAndReadMesh()
   int* all_element_list;
   ext++;
   sprintf(ext, "map");
-  ifstream  mptr(map_filename);
+  std::ifstream  mptr(map_filename);
   int *map_elements = nullptr;
   if(mptr.is_open())
   {
@@ -1021,7 +1021,7 @@ int vtkNek5000Reader::RequestInformation(
     // Might consider having just the master node read the .nek5000 file, and broadcast each line to the other processes ??
 
     char* filename = this->GetFileName();
-    ifstream inPtr(this->GetFileName());
+    std::ifstream inPtr(this->GetFileName());
     
     //print the name of the file we're supposed to open
     vtkDebugMacro(<< "vtkNek5000Reader::RequestInformation: FileName: " << this->GetFileName());
