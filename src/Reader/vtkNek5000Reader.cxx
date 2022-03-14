@@ -16,7 +16,6 @@
 #include "vtkSmartPointer.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkTimerLog.h"
-#include "vtkTrivialProducer.h"
 #include "vtkTypeUInt32Array.h"
 #include "vtkUnsignedCharArray.h"
 #include "vtkUnstructuredGrid.h"

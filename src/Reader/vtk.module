@@ -4,16 +4,11 @@ LIBRARY_NAME
   Nek5000Reader
 DEPENDS
   VTK::CommonCore
-  VTK::CommonExecutionModel
-  VTK::FiltersGeometry
-  VTK::InteractionStyle
-  VTK::RenderingCore
-  VTK::RenderingOpenGL2
   VTK::CommonDataModel
+  VTK::CommonExecutionModel
   VTK::CommonSystem
-  VTK::ParallelCore  
+  VTK::ParallelCore
 
 PRIVATE_DEPENDS
   VTK::mpi
-#  ParaView::Core
   ParaView::VTKExtensionsFiltersGeneral
