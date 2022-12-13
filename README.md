@@ -1,4 +1,4 @@
-This is a plugin source code for the NEK5000 data format, for use with version 5.10 of ParaView
+This is a plugin source code for the NEK5000 data format, for use with version 5.1[01] of ParaView
 
 How to compile:
 
