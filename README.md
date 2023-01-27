@@ -13,3 +13,5 @@ How to compile:
   cmake ../
 
   make
+
+N.B. (January 27, 2023). Thanks to the integration work of Dan Lipsa and Scott Wittenburg at Kitware, the code has now been integrated into VTK. Thus, it will soon be integrated as a native reader in ParaView.
