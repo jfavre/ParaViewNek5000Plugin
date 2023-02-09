@@ -7,11 +7,8 @@ How to compile:
   OpenImageDenoise_DIR, and VisRTX_DIR before running cmake)
 
   mkdir build
-
   cd build
-
   cmake ../
-
   make
 
-N.B. (January 27, 2023). Thanks to the integration work of Dan Lipsa and Scott Wittenburg at Kitware, the code has now been integrated into VTK. Thus, it will soon be integrated as a native reader in ParaView.
+N.B. (February 09, 2023). Thanks to the integration work of Dan Lipsa and Scott Wittenburg at Kitware, the code has now been integrated into VTK and ParaView. Using a nightly download (more recent than v5.11), yuo will have the native reader in ParaView.
